@@ -10,12 +10,15 @@ body { max-width: 900px; margin: 8vh auto; padding: 20px; font-family: monospace
 .brand { font-size: 12px; }
 h1 { display: inline-block; margin: 0 0 24px; padding: 8px 20px; border: 2px solid #00ff00; border-radius: 5px; background: #001100; font-size: 48px; line-height: 1.2; }
 p { margin: 0 0 24px; }
+hr { margin: 5%; }
 a, button, select { color: #00ff00; background: #001100; border: 1px solid #00ff00; border-radius: 5px; font: inherit; }
 a, button { display: inline-block; padding: 8px 14px; text-decoration: none; cursor: pointer; }
 a:hover, button:hover { background: #00ff00; color: #000; }
 a:focus, button:focus, select:focus { outline: 2px solid #00ff00; outline-offset: 3px; }
 button { margin-left: 8px; }
 #viewer { margin-top: 28px; }
+.instructline { margin: 0; }
+.cmdline { padding: 1% 2.5% 1% 2.5%; background: #002200; border-radius: 5px; }
 select { max-width: 100%; padding: 6px; }
 pre { height: 55vh; overflow: auto; padding: 16px; background: #001100; border: 1px solid #00ff00; border-radius: 5px; font-size: 13px; white-space: pre; }
 @media (max-width: 480px) { body { margin: 3vh auto; padding: 12px; } h1 { font-size: 40px; } a, button { padding: 8px; } }
@@ -56,6 +59,37 @@ pre { height: 55vh; overflow: auto; padding: 16px; background: #001100; border: 
 <option value="windows-x86/altchats.html">windows-x86/altchats.html</option>
 </select>
 <pre id="code" tabindex="0" aria-label="Source code"></pre>
+</div>
+<div>
+<br>
+<hr>
+<h3 class="instructline">1. Download & unzip the ZIP file.</h3>
+<hr>
+<h3 class="instructline">2. Open the unzipped folder.  Right-click in the folder and select the option to open a Terminal.</h3>
+<hr>
+<h3 class="instructline">3. Type the following command:</h3>
+<br>
+<h3 class="instructline">WINDOWS:</h3>
+<p class="cmdline">.\altchats_web.exe ADDRESS KEY</p>
+<h3 class="instructline">LINUX:</h3>
+<p class="cmdline"> ./altchats_web ADDRESS KEY</p>
+<p class="instructline">[Replace  <span class="cmdline">ADDRESS</span> with the <span class="cmdline">IP address</span> of the lobby you're connecting to.]</p>
+<br>
+<p class="instructline">[If connecting to a PRIVATE lobby, replace <span class="cmdline">KEY</span> with the <span class="cmdline">KEY</span> the lobby host gave you; otherwise, leave it blank for OPEN lobbies.]</p>
+<hr>
+<h3 class="instructline">4. Enter the <span class="cmdline">RELAY PORT</span> number the lobby host gave you.</h3>
+<br>
+<p class="instructline">[If they didn't give you a <span class="cmdline">PORT</span> number, try pressing Enter for the default port, <span class="cmdline">3333</span>.]</p>
+<hr>
+<h3 class="instructline">5. When asked for a <span class="cmdline">LOCAL WEB PORT</span>, press Enter for the default port <span class="cmdline">8080</span>.</h3>
+<br>
+<p class="instructline">[The program may choose a different <span class="cmdline">PORT</span> if the default one is busy on your device.]</p>
+<hr>
+<h3 class="instructline">6. Open the exact address printed in the Terminal in a web browser.</h3>
+<br>
+<p>i.e. <span class="cmdline">http://127.0.0.1:[LOCAL WEB PORT]</span></p>
+<hr>
+<h3 class="instructline">7. For hosting lobbies, custom web ports, different Windows versions, and more, please read the <span class="cmdline">README.md</span> file.</h3>
 </div>
 <noscript><p><a href="source/altchats_relay.c">Read relay source</a></p></noscript>
 <script>
