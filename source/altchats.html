@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHATS</title>
+<style nonce="{{BRIDGE_NONCE}}">
+  html {
+    height: 100%;
+  }
+  body {
+    height: 100%;
+    color: #00FF00;
+    background: #000000;
+    border-radius: 5px;
+  }
+  hr {
+    height: 2px;
+    background-color: #00FF00;
+    border: #00FF00;
+  }
+  label,
+  label:active {
+    color: #00FF00;
+    background: none;
+    border-radius: 5px;
+  }
+  select,
+  input,
+  input:active,
+  input:focus,
+  button,
+  button:active,
+  button:focus {
+    font-size: 1rem;
+    color: #00FF00;
+    background: #001100;
+    border: 2px solid #00FF00;
+    box-shadow: inset 0 0 5px #00FF00;
+    outline: none;
+    border-radius: 5px;
+  }
+  button:hover,
+  #send:hover {
+    background-color: #00FF00;
+    color: black;
+    cursor: pointer;
+    opacity: 0.666;
+  }
+  option {
+    background-color: black;
+  }
+  #hero_div {
+    margin: 0 0 2.5% 0;
+  }
+  #hero {
+    width: fit-content;
+    margin: 0 0 1% 0;
+    padding: 1%;
+    background: #001100;
+    border: 2px solid green;
+    border-radius: 5px;
+  }
+  #subhero {
+    margin: 0;
+  }
+  .conversation {
+    min-height: 50%;
+    height: 20em;
+    background: #001100;
+    font-size: 1.5rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    border: 2px solid #00FF00;
+    border-radius: 5px;
+  }
+  #display {
+    min-width: 25%;
+    background: #001100;
+    font-size: 1.5rem;
+  }
+  #message {
+    width: 80%;
+    background: #001100;
+    font-size: 1.5rem;
+  }
+  #tabs {
+    margin-top: 1em;
+  }
+  #tabs button {
+    margin: 0 0.3em 0.3em 0;
+  }
+  #tabs .selected {
+    color: black;
+    background: #00FF00;
+  }
+  #dm_area,
+  #session_controls {
+    display: none;
+    margin: 2.5% 0 2.5% 0;
+  }
+</style>
+</head>
+<body>
+<div id="hero_div"><h6 id="subhero">Alternet</h6>
+<h1 id="hero">CHATS</h1>
+<button id="dm" type="button">DM</button>
+</div>
+<div id="dm_area">
+<p>DMs trust this relay to introduce peers correctly. Know its operator before sharing sensitive information. Display names are labels.</p>
+<label for="peer">Peer:</label>
+<select id="peer"><option value="">Choose a connected peer</option></select>
+<button id="dm_start" type="button" disabled>DM</button>
+</div>
+<form id="chat" action="#" autocomplete="off">
+<label for="display">Display name:</label>
+<input id="display" type="text" maxlength="63" autocomplete="off">
+<div id="tabs" role="tablist" aria-label="Conversations">
+<button id="tab_lobby" type="button" role="tab" aria-controls="messages">PUBLIC LOBBY</button>
+</div>
+<div id="panes"><pre id="messages" class="conversation" role="tabpanel"></pre></div>
+<button id="clear" type="button">CLEAR</button>
+<span id="session_controls">
+<button id="dm_accept" type="button" disabled>ACCEPT</button>
+<button id="dm_close" type="button" disabled>CLOSE DM</button>
+</span>
+<p id="status">Connecting...</p>
+<label id="message_label" for="message">Message:</label>
+<input id="message" type="text" maxlength="8192" autocomplete="off">
+<input id="send" type="submit" value="SEND" disabled>
+</form>
+<noscript>Enable JavaScript to send and receive messages.</noscript>
+<script type="text/javascript" nonce="{{BRIDGE_NONCE}}">
+(function () {
+  var bridgeToken = '{{BRIDGE_TOKEN}}';
+  var status = document.getElementById('status');
+  var display = document.getElementById('display');
+  var input = document.getElementById('message');
+  var button = document.getElementById('send');
+  var peer = document.getElementById('peer');
+  var area = document.getElementById('dm_area');
+  var bar = document.getElementById('tabs');
+  var panes = document.getElementById('panes');
+  var startButton = document.getElementById('dm_start');
+  var acceptButton = document.getElementById('dm_accept');
+  var closeButton = document.getElementById('dm_close');
+  var connected = false, sending = false, peers = {}, states = {}, roster = '', self = '';
+  var tabs = {}, nameTimer, nameBusy = false, nameSent = null, initialized = false;
+  var lobby = {id:'', tag:'', stage:'0', draft:'', unread:false, notice:'',
+    pane:document.getElementById('messages'), button:document.getElementById('tab_lobby')};
+  tabs.p0 = lobby;
+  var active = lobby;
+  function setText(node, text) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+    node.appendChild(document.createTextNode(text));
+  }
+  function say(text) { setText(status, text); }
+  function label(id) { return (peers['p' + id] || 'Anonymous') + ' #' + id; }
+  function alive(tab) { return tabs['p' + (tab.id || '0')] === tab; }
+  function clearLog(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+    node.chatSize = 0;
+  }
+  function title(tab) {
+    setText(tab.button, tab.id ? (tab.unread ? '* ' : '') + label(tab.id) + (tab.stage == '2' ? ' (invite)' : '') : 'PUBLIC LOBBY');
+    tab.button.className = tab === active ? 'selected' : '';
+    tab.button.setAttribute('aria-selected', tab === active ? 'true' : 'false');
+  }
+  function controls() {
+    button.disabled = !connected || sending || (active.id && active.stage != '4');
+    startButton.disabled = !connected || !peer.value || !!tabs['p' + peer.value];
+    acceptButton.disabled = !connected || active.stage != '2';
+    closeButton.disabled = !connected || !active.id;
+    document.getElementById('session_controls').style.display = active.id ? 'inline' : 'none';
+    setText(document.getElementById('message_label'), active.id ? 'Private message:' : 'Message:');
+    if (!connected) return;
+    say(active.notice || (!active.id ? 'Relay verified. Public lobby. You are #' + self + '.'
+      : active.stage == '4' ? 'Encrypted DM with ' + label(active.id) + '.'
+      : active.stage == '2' ? 'Invitation from ' + label(active.id) + '. Accept to establish the DM.'
+      : 'Waiting for ' + label(active.id) + ': acceptance and key confirmation.'));
+  }
+  function select(tab) {
+    if (!alive(tab)) return;
+    if (alive(active)) { active.draft = input.value; active.pane.style.display = 'none'; }
+    var previous = active;
+    active = tab; active.unread = false;
+    active.pane.style.display = 'block'; input.value = active.draft;
+    title(previous); title(active); controls();
+    active.pane.scrollTop = active.pane.scrollHeight;
+  }
+  function append(tab, text, id, name) {
+    if (!alive(tab)) return;
+    var row = document.createElement('span');
+    if (id) {
+      var who = document.createElement('button');
+      who.type = 'button';
+      who.appendChild(document.createTextNode('> ' + (name || 'Anonymous') + ' #' + id));
+      who.onclick = function () { choose(id); };
+      row.appendChild(who); row.appendChild(document.createTextNode(': '));
+    }
+    row.appendChild(document.createTextNode(text));
+    if (text.charAt(text.length - 1) != '\n') row.appendChild(document.createTextNode('\n'));
+    row.chatSize = text.length + (name ? name.length : 0) + 24;
+    tab.pane.appendChild(row); tab.pane.chatSize = (tab.pane.chatSize || 0) + row.chatSize;
+    while (tab.pane.chatSize > 65536 && tab.pane.firstChild) {
+      tab.pane.chatSize -= tab.pane.firstChild.chatSize || 0;
+      tab.pane.removeChild(tab.pane.firstChild);
+    }
+    if (active !== tab) { tab.unread = true; title(tab); }
+    tab.pane.scrollTop = tab.pane.scrollHeight;
+  }
+  function createTab(id, stage, tag) {
+    var key = 'p' + id, tab = tabs[key], count = 0;
+    if (tab && tab.tag && tab.tag != tag) { drop(tab); tab = null; }
+    if (!tab) {
+      for (var item in tabs) if (tabs.hasOwnProperty(item) && item != 'p0') count++;
+      if (count >= 8) return null;
+      tab = {id:id, stage:stage, tag:tag, draft:'', unread:true, notice:'', pending:!tag,
+        until:new Date().getTime() + 9000, pane:document.createElement('pre'), button:document.createElement('button')};
+      tab.pane.id = 'messages_' + id; tab.pane.className = 'conversation';
+      tab.pane.setAttribute('role', 'tabpanel'); tab.pane.style.display = 'none';
+      tab.button.id = 'tab_' + id; tab.button.type = 'button';
+      tab.button.setAttribute('role', 'tab'); tab.button.setAttribute('aria-controls', tab.pane.id);
+      tab.button.onclick = function () { select(tab); };
+      tabs[key] = tab; panes.appendChild(tab.pane); bar.appendChild(tab.button);
+    }
+    if (tab.stage != stage) tab.notice = '';
+    tab.stage = stage;
+    if (tag) { tab.tag = tag; tab.pending = false; }
+    title(tab); return tab;
+  }
+  function drop(tab) {
+    if (!tab.id || !alive(tab)) return;
+    delete tabs['p' + tab.id]; clearLog(tab.pane); tab.draft = ''; tab.notice = '';
+    tab.pane.parentNode.removeChild(tab.pane); tab.button.parentNode.removeChild(tab.button);
+    if (active === tab) { input.value = ''; select(lobby); }
+  }
+  function clearAll() {
+    for (var key in tabs) if (tabs.hasOwnProperty(key) && key != 'p0') drop(tabs[key]);
+    clearLog(lobby.pane); lobby.draft = ''; input.value = ''; peers = {}; states = {}; roster = '';
+  }
+  function rebuild() {
+    var chosen = peer.value;
+    while (peer.firstChild) peer.removeChild(peer.firstChild);
+    var option = document.createElement('option'); option.value = '';
+    option.appendChild(document.createTextNode('Choose a connected peer')); peer.appendChild(option);
+    var ids = roster.split(',');
+    for (var i = 0; i < ids.length; i++) if (ids[i]) {
+      option = document.createElement('option'); option.value = ids[i];
+      option.appendChild(document.createTextNode(label(ids[i]))); peer.appendChild(option);
+    }
+    peer.value = peers.hasOwnProperty('p' + chosen) ? chosen : '';
+    for (var key in tabs) if (tabs.hasOwnProperty(key)) title(tabs[key]);
+  }
+  function request(path, body, callback, permit, length, id) {
+    var xhr, done = false, timer;
+    function finish(code, text) {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      callback(code, text);
+    }
+    try {
+      xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+      xhr.open('POST', path, true);
+      xhr.setRequestHeader('X-Altchats', '1');
+      xhr.setRequestHeader('X-Bridge-Token', bridgeToken);
+      xhr.setRequestHeader('Content-Type', 'text/plain; charset=utf-8');
+      if (permit) xhr.setRequestHeader('X-Send-Permit', permit);
+      if (length) xhr.setRequestHeader('X-Message-Length', String(length));
+      if (id) xhr.setRequestHeader('X-Peer', id);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4) {
+          try { finish(xhr.status, xhr.responseText); }
+          catch (error) { finish(0, ''); }
+        }
+      };
+      timer = window.setTimeout(function () { finish(0, ''); xhr.abort(); }, 8000);
+      xhr.send(body);
+    } catch (error) { finish(0, ''); }
+  }
+  function decode(text) {
+    if (window.JSON && window.JSON.parse) return window.JSON.parse(text);
+    var offset = 0;
+    function space() { while (/\s/.test(text.charAt(offset)) && offset < text.length) offset++; }
+    function take(character) {
+      space();
+      if (text.charAt(offset++) != character) throw new Error('Invalid bridge response');
+    }
+    function string() {
+      take('"');
+      var value = '';
+      while (offset < text.length) {
+        var c = text.charAt(offset++);
+        if (c == '"') return value;
+        if (c == '\\') {
+          c = text.charAt(offset++);
+          var escapes = {'"':'"', '\\':'\\', '/':'/', b:'\b', f:'\f', n:'\n', r:'\r', t:'\t'};
+          if (c == 'u') {
+            var hex = text.substr(offset, 4);
+            if (!/^[0-9a-f]{4}$/i.test(hex)) throw new Error('Invalid escape');
+            value += String.fromCharCode(parseInt(hex, 16)); offset += 4;
+          } else if (escapes.hasOwnProperty(c)) value += escapes[c];
+          else throw new Error('Invalid escape');
+        } else {
+          if (c.charCodeAt(0) < 32) throw new Error('Invalid string');
+          value += c;
+        }
+      }
+      throw new Error('Unfinished string');
+    }
+    var result = [];
+    take('['); space();
+    if (text.charAt(offset) != ']') {
+      while (true) {
+        var row = [];
+        take('[');
+        for (var field = 0; field < 4; field++) { if (field) take(','); row.push(string()); }
+        take(']'); result.push(row); space();
+        if (result.length > 2048) throw new Error('Too many events');
+        if (text.charAt(offset) != ',') break;
+        offset++;
+      }
+    }
+    take(']'); space();
+    if (offset != text.length) throw new Error('Trailing response');
+    return result;
+  }
+  function choose(id) {
+    if (!connected || !peers.hasOwnProperty('p' + id)) { say('That peer has left.'); return; }
+    var tab = tabs['p' + id];
+    if (!tab) {
+      tab = createTab(id, '1', '');
+      if (!tab) { say('Eight DMs are already open. Close one before starting another.'); return; }
+      select(tab); action('/dm-start', tab);
+    } else select(tab);
+  }
+  function action(path, tab) {
+    if (!connected || !tab || !tab.id || !alive(tab)) return;
+    tab.notice = ''; controls();
+    request(path, '', function (code, text) {
+      if (!alive(tab)) return;
+      if (code == 200 && path == '/dm-close') { drop(tab); controls(); }
+      else if (code != 200) {
+        if (!tab.tag && path == '/dm-start') { drop(tab); say(text || 'DM action not confirmed.'); }
+        else { tab.notice = text || 'DM action not confirmed.'; controls(); }
+      }
+    }, null, null, tab.id);
+  }
+  function nameLength(name) {
+    if (/[\r\n]/.test(name)) throw new Error('Name contains a newline');
+    return encodeURIComponent(name).replace(/%[0-9a-f]{2}/gi, 'x').length;
+  }
+  function updateName() {
+    if (!connected || nameBusy || display.value == nameSent) return;
+    var name = display.value;
+    try { if (nameLength(name) > 63) throw new Error('Name too long'); }
+    catch (error) { say('Display name: maximum 63 UTF-8 bytes, one line.'); return; }
+    nameBusy = true;
+    request('/name', name, function (code, text) {
+      nameBusy = false;
+      if (code == 200) nameSent = name;
+      else if (connected) say(text || 'Display name update not confirmed.');
+    });
+  }
+  function poll() {
+    request('/poll', '', function (code, text) {
+      if (code == 202) { say(text); window.setTimeout(poll, 300); return; }
+      if (code != 200) {
+        connected = false; clearAll(); rebuild(); controls();
+        say(code == 410 ? text : 'Bridge unavailable. Check its window, then reload this page.'); return;
+      }
+      try {
+        var rows = decode(text);
+        if (!rows.length || rows[0][0] != '0') throw new Error('Wrong bridge');
+        for (var check = 0; check < rows.length; check++) {
+          if (rows[check].length != 4) throw new Error('Wrong row');
+          for (var field = 0; field < 4; field++) if (typeof rows[check][field] != 'string') throw new Error('Wrong value');
+        }
+        self = rows[0][1];
+        var fresh = rows[0][2], live = {}, ids = fresh.split(','), changed = fresh != roster;
+        for (var i = 0; i < ids.length; i++) if (ids[i]) live['p' + ids[i]] = true;
+        for (var key in peers) if (peers.hasOwnProperty(key) && !live[key]) delete peers[key];
+        for (key in live) if (live.hasOwnProperty(key) && !peers.hasOwnProperty(key)) peers[key] = '';
+        roster = fresh; states = {};
+        var sessions = rows[0][3].split(',');
+        for (i = 0; i < sessions.length; i++) {
+          var parts = sessions[i].split(':');
+          if (parts.length == 3 && live['p' + parts[0]]) states['p' + parts[0]] = {stage:parts[1], tag:parts[2]};
+        }
+        connected = true;
+        for (key in tabs) if (tabs.hasOwnProperty(key) && key != 'p0' && !states[key]
+          && !(tabs[key].pending && tabs[key].until > new Date().getTime() && live[key])) drop(tabs[key]);
+        for (key in states) if (states.hasOwnProperty(key)) createTab(key.substr(1), states[key].stage, states[key].tag);
+        for (i = 1; i < rows.length; i++) {
+          var kind = rows[i][0], source = rows[i][1].split(':'), id = source[0], name = rows[i][2], message = rows[i][3];
+          var tab = tabs['p' + id];
+          if (kind == '8' && id == self && !initialized) {
+            initialized = true; nameSent = name; if (!display.value) display.value = name;
+          } else if ((kind == '4' || kind == '5' || kind == '8') && live['p' + id] && peers['p' + id] != name) {
+            peers['p' + id] = name; changed = true;
+          }
+          if (kind == '4') append(lobby, message, id, name);
+          else if (kind == '5' && tab && tab.tag == source[1]) append(tab, '> ' + (name ? name + ': ' : '') + message);
+          else if (kind == '6' && message == '2' && tab && tab.tag == source[1] && active !== tab) { tab.unread = true; title(tab); }
+          else if (kind == '7') append(lobby, '[' + message + ']');
+        }
+        if (changed) rebuild();
+        controls(); updateName();
+      } catch (error) {
+        connected = false; clearAll(); rebuild(); controls();
+        say('Invalid bridge response. Use matching files, then reload.'); return;
+      }
+      window.setTimeout(poll, 300);
+    });
+  }
+  function sendText() {
+    var tab = active;
+    if (!connected || sending || !input.value || (tab.id && tab.stage != '4')) return false;
+    var text = input.value, name = display.value, body = name + '\n' + text + '\n', length;
+    try {
+      if (nameLength(name) > 63) { say('Display name: maximum 63 UTF-8 bytes, one line.'); return false; }
+      length = encodeURIComponent(body).replace(/%[0-9a-f]{2}/gi, 'x').length;
+      if (length > 8192) { say('Message too long: maximum 8192 UTF-8 bytes including name.'); return false; }
+    } catch (error) { say('Message contains an invalid character.'); return false; }
+    sending = true; tab.draft = text; tab.notice = ''; controls();
+    function finished(code, response) {
+      sending = false;
+      if (alive(tab)) {
+        if (code == 200 && connected) {
+          append(tab, '(Me) ' + (name ? name + ': ' : '') + text);
+          if (tab.draft == text) tab.draft = '';
+          if (active === tab && input.value == text) input.value = '';
+          if (active === tab) input.focus();
+        } else tab.notice = response || 'Send not confirmed. Check the connection before retrying.';
+      }
+      controls();
+    }
+    request('/permit', '', function (code, permit) {
+      if (code != 200 || !connected || !alive(tab) || (tab.id && tab.stage != '4') || !/^[0-9a-f]{64}$/.test(permit)) {
+        finished(code == 200 ? 0 : code, code == 200 ? '' : permit); return;
+      }
+      request('/send', body, finished, permit, null, tab.id);
+    }, null, length, tab.id);
+    return false;
+  }
+  document.getElementById('chat').onsubmit = function (event) {
+    if (event && event.preventDefault) event.preventDefault();
+    return sendText();
+  };
+  lobby.button.onclick = function () { select(lobby); };
+  document.getElementById('dm').onclick = function () { area.style.display = area.style.display == 'block' ? 'none' : 'block'; };
+  document.getElementById('dm').onmouseover = function () { this.innerText = 'DM >'; };
+  document.getElementById('dm').onmouseout = function () { this.innerText = 'DM'; };
+  document.getElementById('clear').onclick = function () { clearLog(active.pane); };
+  startButton.onclick = function () { if (peer.value) choose(peer.value); };
+  acceptButton.onclick = function () { action('/dm-accept', active); };
+  closeButton.onclick = function () { action('/dm-close', active); };
+  peer.onchange = controls;
+  display.oninput = display.onkeyup = display.onchange = function () {
+    window.clearTimeout(nameTimer); nameTimer = window.setTimeout(updateName, 300);
+  };
+  window.onunload = function () { connected = false; clearAll(); bridgeToken = ''; window.clearTimeout(nameTimer); };
+  if (!/^[0-9a-f]{64}$/.test(bridgeToken)) { say('Open this page through the updated ALTCHATS bridge.'); return; }
+  title(lobby); controls(); poll();
+}());
+</script>
+</body>
+</html>

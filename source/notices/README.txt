@@ -1,0 +1,1 @@
+These notices apply to compiler runtime code linked into the Windows executables. Application source licensing is separate. The Cacophony test vector has its own license in tests/CACOPHONY_LICENSE.txt.

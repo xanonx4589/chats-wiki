@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alternet CHATS</title>
+<style>
+html { background: #000; color: #00ff00; }
+body { max-width: 900px; margin: 8vh auto; padding: 20px; font-family: monospace; line-height: 1.6; }
+.brand { font-size: 12px; }
+h1 { display: inline-block; margin: 0 0 24px; padding: 8px 20px; border: 2px solid #00ff00; border-radius: 5px; background: #001100; font-size: 48px; line-height: 1.2; }
+p { margin: 0 0 24px; }
+a, button, select { color: #00ff00; background: #001100; border: 1px solid #00ff00; border-radius: 5px; font: inherit; }
+a, button { display: inline-block; padding: 8px 14px; text-decoration: none; cursor: pointer; }
+a:hover, button:hover { background: #00ff00; color: #000; }
+a:focus, button:focus, select:focus { outline: 2px solid #00ff00; outline-offset: 3px; }
+button { margin-left: 8px; }
+#viewer { margin-top: 28px; }
+select { max-width: 100%; padding: 6px; }
+pre { height: 55vh; overflow: auto; padding: 16px; background: #001100; border: 1px solid #00ff00; border-radius: 5px; font-size: 13px; white-space: pre; }
+@media (max-width: 480px) { body { margin: 3vh auto; padding: 12px; } h1 { font-size: 40px; } a, button { padding: 8px; } }
+</style>
+</head>
+<body>
+<div class="brand">Alternet</div>
+<h1>CHATS</h1>
+<p>Open-source public lobbies and encrypted private chats.<br>No accounts. No saved chat history. Windows + Linux.</p>
+<a href="ALTCHATS.zip" download>DOWNLOAD ZIP</a>
+<button id="toggle" type="button" aria-expanded="false" aria-controls="viewer">VIEW SOURCE</button>
+<div id="viewer" style="display:none">
+<label for="files">Source file:</label>
+<select id="files">
+<option value="BUILD_NOTES.txt">BUILD_NOTES.txt</option>
+<option value="altchats.html">altchats.html</option>
+<option value="altchats_client.c">altchats_client.c</option>
+<option value="altchats_net.h">altchats_net.h</option>
+<option value="altchats_protocol.h">altchats_protocol.h</option>
+<option value="altchats_relay.c">altchats_relay.c</option>
+<option value="altchats_session.c">altchats_session.c</option>
+<option value="altchats_session.h">altchats_session.h</option>
+<option value="altchats_web.c">altchats_web.c</option>
+<option value="bridge_guard.h">bridge_guard.h</option>
+<option value="build_altchats.bat">build_altchats.bat</option>
+<option value="build_altchats.sh">build_altchats.sh</option>
+<option value="crypto/chacha20_poly1305.c">crypto/chacha20_poly1305.c</option>
+<option value="crypto/chacha20_poly1305.h">crypto/chacha20_poly1305.h</option>
+<option value="crypto/noise.c">crypto/noise.c</option>
+<option value="crypto/noise.h">crypto/noise.h</option>
+<option value="crypto/sha256.c">crypto/sha256.c</option>
+<option value="crypto/sha256.h">crypto/sha256.h</option>
+<option value="notices/GCC_RUNTIME.txt">notices/GCC_RUNTIME.txt</option>
+<option value="notices/GPL_3.txt">notices/GPL_3.txt</option>
+<option value="notices/MINGW_W64.txt">notices/MINGW_W64.txt</option>
+<option value="notices/README.txt">notices/README.txt</option>
+<option value="windows-x64/altchats.html">windows-x64/altchats.html</option>
+<option value="windows-x86/altchats.html">windows-x86/altchats.html</option>
+</select>
+<pre id="code" tabindex="0" aria-label="Source code"></pre>
+</div>
+<noscript><p><a href="source/altchats_relay.c">Read relay source</a></p></noscript>
+<script>
+(function () {
+    var toggle = document.getElementById('toggle');
+    var viewer = document.getElementById('viewer');
+    var files = document.getElementById('files');
+    var code = document.getElementById('code');
+    var request, generation = 0, loaded = false;
+    code.appendChild(document.createTextNode(''));
+    function show(text) { code.firstChild.nodeValue = text; code.scrollTop = code.scrollLeft = 0; }
+    function load() {
+        var current = ++generation;
+        if (request) request.abort();
+        show('Loading...');
+        request = new XMLHttpRequest();
+        request.open('GET', 'source/' + files.value, true);
+        request.timeout = 10000;
+        request.onreadystatechange = function () {
+            if (current != generation || request.readyState != 4) return;
+            show(request.status == 200 ? request.responseText : 'Could not load this file. Try selecting it again.');
+        };
+        request.onerror = request.ontimeout = function () {
+            if (current == generation) show('Could not load this file. Try selecting it again.');
+        };
+        request.send(null);
+    }
+    files.value = 'altchats_relay.c';
+    files.onchange = load;
+    toggle.onclick = function () {
+        var open = viewer.style.display == 'none';
+        viewer.style.display = open ? 'block' : 'none';
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.firstChild.nodeValue = open ? 'HIDE SOURCE' : 'VIEW SOURCE';
+        if (open && !loaded) { loaded = true; load(); }
+    };
+}());
+</script>
+</body>
+</html>

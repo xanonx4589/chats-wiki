@@ -1,0 +1,15 @@
+ALTCHATS Windows builds — 2026-10-05
+
+windows-x86: 32-bit Windows executables.
+windows-x64: 64-bit Windows executables.
+Each folder contains the relay, CLI client, web bridge and matching altchats.html.
+Keep altchats.html beside altchats_web.exe.
+
+All 13 supplied reference files are retained unchanged in the root folder.
+The crypto sources and compiler notices are carried over from the previous release.
+The supplied Linux relay/web binaries are retained unchanged, not rebuilt here.
+
+Windows binaries were cross-compiled with MinGW GCC 13, C99, -Os, -s, -static,
+-Wall -Wextra -Wpedantic -Werror. All six builds passed.
+PE architecture and imports were checked: ADVAPI32, KERNEL32, msvcrt, WS2_32 only.
+Windows execution and compatibility with older Windows versions were not tested.
